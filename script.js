@@ -1,8 +1,16 @@
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("Venesis AI: Inicializace skriptu...");
-
+function initVenesis() {
     const trigger = document.getElementById('chat_trigger');
     const windowEl = document.getElementById('chat_window');
+    
+    // Čekáme na Framer, až prvky vykreslí
+    if (!trigger || !windowEl) {
+        console.log("Venesis AI: Čekám na načtení prvků z Frameru...");
+        setTimeout(initVenesis, 300); // Zkusí to znovu za 0.3 vteřiny
+        return;
+    }
+
+    console.log("Venesis AI: Prvky nalezeny, startuji mozek!");
+
     const closeBtn = document.getElementById('close_chat');
     const sendBtn = document.getElementById('send_btn');
     const inputEl = document.getElementById('chat_input');
@@ -11,11 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('file_input');
     const micBtn = document.getElementById('mic_btn');
     const speakerBtn = document.getElementById('speaker_btn');
-
-    if (!trigger || !windowEl) {
-        console.error("Venesis AI: Prvky nebyly nalezeny!");
-        return;
-    }
 
     let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null, isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
 
@@ -63,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (0 === t.length) return void playNextAudio();
         try {
             const e = new FormData; e.append("text", t);
-            // POZOR: Zde je lokální backend
+            // LOKÁLNÍ BACKEND (Změníme později)
             const n = await fetch('http://127.0.0.1:8000/tts', { method: 'POST', body: e });
             if (n.ok) {
                 const t = await n.blob();
@@ -79,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.addEventListener('change', t => { 
         if (t.target.files.length > 0) {
             selectedFile = t.target.files[0];
-            attachBtn.classList.add('active'); // Ikona zmodrá
+            attachBtn.classList.add('active'); 
         }
     });
 
@@ -87,12 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
     micBtn.addEventListener('click', async () => {
         if (mediaRecorder && "recording" === mediaRecorder.state) {
             mediaRecorder.stop();
-            micBtn.classList.remove('recording'); // Přestane červeně blikat
+            micBtn.classList.remove('recording'); 
         } else try {
             const t = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(t);
             mediaRecorder.start();
-            micBtn.classList.add('recording'); // Začne červeně blikat
+            micBtn.classList.add('recording'); 
             audioChunks = [];
             mediaRecorder.addEventListener("dataavailable", t => { audioChunks.push(t.data) });
             mediaRecorder.addEventListener("stop", () => { recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' }) });
@@ -129,9 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedFile = null;
             recordedAudioBlob = null;
             fileInput.value = '';
-            attachBtn.classList.remove('active'); // Reset sponky
+            attachBtn.classList.remove('active');
             
-            // POZOR: Zde je lokální backend
+            // LOKÁLNÍ BACKEND (Změníme později)
             const r = await fetch('http://127.0.0.1:8000/chat', { method: 'POST', body: e });
             const o = r.body.getReader(), a = new TextDecoder();
             let i = "", s = false, d = null, c = "";
@@ -173,4 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sendBtn.addEventListener('click', sendMessage);
     inputEl.addEventListener('keypress', t => { 'Enter' === t.key && sendMessage() });
-});
+}
+
+// Spustíme smyčku
+initVenesis();
