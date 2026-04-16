@@ -2,6 +2,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Pojistka pro Framer - počkáme, dokud se nevykreslí všechna tlačítka
     function initVenesis() {
+        function getCurrentTime() {
+    const now = new Date();
+    return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+}
         const trigger = document.getElementById('chat_trigger');
         const windowEl = document.getElementById('chat_window');
         const sendBtn = document.getElementById('send_btn');
