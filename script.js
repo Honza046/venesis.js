@@ -1,4 +1,3 @@
-// Celý kód zabalíme do funkce, která počká na načtení DOMu
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Venesis AI: Inicializace skriptu...");
 
@@ -15,13 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestedPromptsContainer = document.getElementById('suggested_prompts');
     const promptBtns = document.querySelectorAll('.prompt_btn');
 
-    // Kontrola, zda prvky existují
     if (!trigger || !windowEl) {
         console.error("Venesis AI: Prvky chat_trigger nebo chat_window nebyly nalezeny v HTML!");
         return;
     }
 
-    let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null, isVoiceEnabled = !1, currentAudio = null, audioQueue = [], isPlaying = !1;
+    // ÚPRAVA: isVoiceEnabled je teď true, přidáno hasWelcomed
+    let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null, isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
+
+    // ÚPRAVA: Zapnutí vizuálu ikonky reproduktoru od začátku
+    if (speakerBtn) speakerBtn.classList.add('active');
 
     function getTime() { 
         const t = new Date; 
@@ -37,7 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => { windowEl.classList.remove('closing') }, 500)
         } else {
             windowEl.classList.remove('closing');
-            windowEl.classList.add('active')
+            windowEl.classList.add('active');
+
+            // ÚPRAVA: Přečtení uvítací zprávy při prvním otevření chatu
+            if (!hasWelcomed && isVoiceEnabled) {
+                hasWelcomed = true;
+                audioQueue.push("Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?");
+                if (!isPlaying) playNextAudio();
+            }
         }
     });
 
@@ -48,12 +57,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     speakerBtn.addEventListener('click', () => {
-        isVoiceEnabled = !isVoiceEnabled, isVoiceEnabled ? speakerBtn.classList.add('active') : (speakerBtn.classList.remove('active'), audioQueue = [], currentAudio && (currentAudio.pause(), currentAudio = null), isPlaying = !1)
+        isVoiceEnabled = !isVoiceEnabled, isVoiceEnabled ? speakerBtn.classList.add('active') : (speakerBtn.classList.remove('active'), audioQueue = [], currentAudio && (currentAudio.pause(), currentAudio = null), isPlaying = false)
     });
 
     async function playNextAudio() {
-        if (0 === audioQueue.length) return void (isPlaying = !1);
-        isPlaying = !0;
+        if (0 === audioQueue.length) return void (isPlaying = false);
+        isPlaying = true;
         const t = audioQueue.shift().replace(/<[^>]*>?/gm, '').trim();
         if (0 === t.length) return void playNextAudio();
         try {
@@ -74,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     micBtn.addEventListener('click', async () => {
         if (mediaRecorder && "recording" === mediaRecorder.state) mediaRecorder.stop(), micBtn.style.color = "#aaa";
         else try {
-            const t = await navigator.mediaDevices.getUserMedia({ audio: !0 });
+            const t = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(t), mediaRecorder.start(), micBtn.style.color = "red", audioChunks = [], mediaRecorder.addEventListener("dataavailable", t => { audioChunks.push(t.data) }), mediaRecorder.addEventListener("stop", () => { recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' }) })
         } catch (t) { alert("K mikrofonu nebyl povolen pristup.") }
     });
@@ -86,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendMessage() {
         const t = inputEl.value.trim();
         if (!t && !selectedFile && !recordedAudioBlob) return;
-        audioQueue = [], currentAudio && (currentAudio.pause(), currentAudio = null), isPlaying = !1, suggestedPromptsContainer && (suggestedPromptsContainer.style.display = 'none');
+        audioQueue = [], currentAudio && (currentAudio.pause(), currentAudio = null), isPlaying = false, suggestedPromptsContainer && (suggestedPromptsContainer.style.display = 'none');
         let e = '';
         t && (e += `<div>${t}</div>`), selectedFile ? e += `<img src="${URL.createObjectURL(selectedFile)}" style="max-width:100%;border-radius:6px;margin-top:6px;display:block;">` : recordedAudioBlob && (e += `<audio controls src="${URL.createObjectURL(recordedAudioBlob)}" style="max-width:100%;margin-top:6px;height:40px;"></audio>`), messagesEl.innerHTML += `<div class="msg_wrap user"><div class="msg">${e}</div><div class="time">${getTime()}</div></div>`, inputEl.value = '', messagesEl.scrollTop = messagesEl.scrollHeight;
         const n = 'loader_' + Date.now();
@@ -95,12 +104,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const e = new FormData;
             t && e.append("message", t), selectedFile ? e.append("file", selectedFile) : recordedAudioBlob && e.append("file", recordedAudioBlob, "hlasovka.webm"), selectedFile = null, recordedAudioBlob = null, fileInput.value = '', attachBtn.style.color = "#aaa";
             const r = await fetch('http://127.0.0.1:8000/chat', { method: 'POST', body: e }), o = r.body.getReader(), a = new TextDecoder();
-            let i = "", s = !1, d = null, c = "";
-            function l() { if (i.length > 0) d.innerHTML += i[0], i = i.substring(1), messagesEl.scrollTop = messagesEl.scrollHeight, setTimeout(l, 20); else s = !1 }
+            let i = "", s = false, d = null, c = "";
+            function l() { if (i.length > 0) d.innerHTML += i[0], i = i.substring(1), messagesEl.scrollTop = messagesEl.scrollHeight, setTimeout(l, 20); else s = false }
             for (; ;) {
                 const { done: t, value: e } = await o.read();
                 if (t) break;
-                const r = a.decode(e, { stream: !0 });
+                const r = a.decode(e, { stream: true });
                 if (i += r, isVoiceEnabled) {
                     c += r;
                     for (; ;) {
@@ -118,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const e = document.createElement('div');
                     e.className = 'msg_wrap ai', d = document.createElement('div'), d.className = 'msg';
                     const r = document.createElement('div');
-                    r.className = 'time', r.innerText = getTime(), e.appendChild(d), e.appendChild(r), messagesEl.appendChild(e), s = !0, l()
+                    r.className = 'time', r.innerText = getTime(), e.appendChild(d), e.appendChild(r), messagesEl.appendChild(e), s = true, l()
                 }
             }
             if (isVoiceEnabled && c.trim().length > 0) {
