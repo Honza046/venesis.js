@@ -193,9 +193,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         messagesEl.appendChild(wrap);
                         started = true;
                         typeWriter();
+                        
                     }
+                    
                 }
-
+                if (msgDiv && msgDiv.parentElement) {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'msg_time';
+                    timeDiv.innerText = getCurrentTime();
+                    msgDiv.parentElement.appendChild(timeDiv);
+                }
                 if (isVoiceEnabled && fullStr.trim()) {
                     const cleanSentence = fullStr.replace(/<[^>]*>?/gm, '').trim();
                     if (cleanSentence) {
