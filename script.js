@@ -122,7 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedFile) html += `<img src="${URL.createObjectURL(selectedFile)}" style="max-width:100%; border-radius:6px; margin-top:6px;">`;
             if (recordedAudioBlob) html += `<audio controls src="${URL.createObjectURL(recordedAudioBlob)}" style="max-width:100%; margin-top:6px; height:40px;"></audio>`;
 
-            messagesEl.innerHTML += `<div class="msg_wrap user"><div class="msg">${html}</div></div>`;
+            const timeStr = getCurrentTime();
+            messagesEl.innerHTML += `<div class="msg_wrap user"><div class="msg">${html}</div><div class="msg_time">${timeStr}</div></div>`;
             inputEl.value = '';
             messagesEl.scrollTop = messagesEl.scrollHeight;
 
