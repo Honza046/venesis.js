@@ -1,165 +1,218 @@
-(function initVenesis() {
-    const g = id => document.getElementById(id);
-    const tr = g('chat_trigger'), wi = g('chat_window'), cl = g('close_chat'),
-          sb = g('send_btn'), ie = g('chat_input'), me = g('chat_messages'),
-          ab = g('attach_btn'), fi = g('file_input'), mb = g('mic_btn'), sp = g('speaker_btn');
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // Pojistka pro Framer - počkáme, dokud se nevykreslí všechna tlačítka
+    function initVenesis() {
+        const trigger = document.getElementById('chat_trigger');
+        const windowEl = document.getElementById('chat_window');
+        const sendBtn = document.getElementById('send_btn');
+        const inputEl = document.getElementById('chat_input');
+        const attachBtn = document.getElementById('attach_btn');
+        const fileInput = document.getElementById('file_input');
+        const micBtn = document.getElementById('mic_btn');
+        const speakerBtn = document.getElementById('speaker_btn');
+        const messagesEl = document.getElementById('chat_messages');
 
-    // Pojistka: Čekáme na Framer, až vykreslí úplně celou lištu
-    if (!tr || !sb || !sp || !ab || !mb) {
-        setTimeout(initVenesis, 300);
-        return;
-    }
-
-    console.log("Venesis AI: Vše načteno, systém je online!");
-
-    let sf=null, mr=null, ac=[], rb=null, ve=true, ca=null, aq=[], ip=false, hw=false;
-
-    // 1. OTEVÍRÁNÍ OKNA A UVÍTÁNÍ
-    tr.onclick = () => {
-        wi.classList.toggle('active');
-        if (wi.classList.contains('active') && !hw && ve) {
-            hw = true;
-            aq.push("Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?");
-            if (!ip) playAudio();
+        // Pokud tlačítka ještě neexistují, zkusíme to za chviličku znovu
+        if (!trigger || !sendBtn || !speakerBtn) {
+            setTimeout(initVenesis, 300);
+            return;
         }
-    };
-    cl.onclick = () => wi.classList.remove('active');
 
-    // 2. ZVUK ON/OFF
-    sp.onclick = () => {
-        ve = !ve;
-        if (ve) {
-            sp.classList.add('active');
-        } else {
-            sp.classList.remove('active');
-            aq = [];
-            if(ca){ ca.pause(); ca=null; }
-            ip=false;
-        }
-    };
+        console.log("Venesis AI: Mozek z GitHubu připojen a běží!");
 
-    async function playAudio() {
-        if (aq.length === 0) { ip = false; return; }
-        ip = true;
-        let txt = aq.shift().replace(/<[^>]*>?/gm,'').trim();
-        if (!txt) return playAudio();
-        try {
-            let fd = new FormData(); fd.append("text", txt);
-            let res = await fetch('http://127.0.0.1:8000/tts', {method:'POST', body:fd});
-            if (res.ok) {
-                let b = await res.blob();
-                ca = new Audio(URL.createObjectURL(b));
-                ca.onended = playAudio;
-                ca.play();
-            } else playAudio();
-        } catch(e) { console.log("TTS Error:", e); playAudio(); }
-    }
+        let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null;
+        let isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
 
-    // 3. PŘÍLOHA
-    ab.onclick = () => fi.click();
-    fi.onchange = e => {
-        if (e.target.files.length > 0) {
-            sf = e.target.files[0];
-            ab.classList.add('active'); // Sponka svítí
-        }
-    };
-
-    // 4. MIKROFON
-    mb.onclick = async () => {
-        if (mr && mr.state === "recording") {
-            mr.stop(); 
-            mb.classList.remove('recording'); // Vypne pulzování
-        } else try {
-            let stream = await navigator.mediaDevices.getUserMedia({audio:true});
-            mr = new MediaRecorder(stream);
-            mr.start(); 
-            mb.classList.add('recording'); // Zapne pulzování
-            ac = [];
-            mr.ondataavailable = e => ac.push(e.data);
-            mr.onstop = () => rb = new Blob(ac, {type:'audio/webm'});
-        } catch(e) { alert("Mikrofon odepřen."); }
-    };
-
-    // 5. ODESLÁNÍ
-    async function sendMsg() {
-        let txt = ie.value.trim();
-        if (!txt && !sf && !rb) return;
-        
-        aq = []; if(ca){ca.pause(); ca=null;} ip = false;
-
-        let html = '';
-        if (txt) html += `<div>${txt}</div>`;
-        if (sf) html += `<img src="${URL.createObjectURL(sf)}" style="max-width:100%;border-radius:6px;margin-top:6px;">`;
-        if (rb) html += `<audio controls src="${URL.createObjectURL(rb)}" style="max-width:100%;margin-top:6px;height:40px;"></audio>`;
-
-        me.innerHTML += `<div class="msg_wrap user"><div class="msg">${html}</div></div>`;
-        ie.value = ''; me.scrollTop = me.scrollHeight;
-
-        let lid = 'l_'+Date.now();
-        me.innerHTML += `<div id="${lid}" class="msg_wrap ai"><div class="msg" style="background:0 0;padding:0"><div style="display:flex;gap:4px;padding:12px"><div style="width:6px;height:6px;background:#fff;border-radius:50%;animation:pulse-white 1s infinite"></div><div style="width:6px;height:6px;background:#fff;border-radius:50%;animation:pulse-white 1s infinite .2s"></div><div style="width:6px;height:6px;background:#fff;border-radius:50%;animation:pulse-white 1s infinite .4s"></div></div></div></div>`;
-        me.scrollTop = me.scrollHeight;
-
-        try {
-            let fd = new FormData();
-            if (txt) fd.append("message", txt);
-            if (sf) fd.append("file", sf);
-            else if (rb) fd.append("file", rb, "hlasovka.webm");
-
-            sf = null; rb = null; fi.value = '';
-            ab.classList.remove('active'); mb.classList.remove('recording');
-
-            let res = await fetch('http://127.0.0.1:8000/chat', {method:'POST', body:fd});
-            let reader = res.body.getReader(), dec = new TextDecoder();
-            let iStr = "", sFlag = false, dNode = null, fStr = "";
-
-            function typeWriter() {
-                if (iStr.length > 0) {
-                    dNode.innerHTML += iStr[0];
-                    iStr = iStr.substring(1);
-                    me.scrollTop = me.scrollHeight;
-                    setTimeout(typeWriter, 20);
-                } else sFlag = false;
+        // 1. UVÍTÁNÍ (Framer řeší vizuální otevření, my jen přidáme zvuk)
+        trigger.addEventListener('click', () => {
+            if (!hasWelcomed && isVoiceEnabled) {
+                setTimeout(() => {
+                    if (windowEl.classList.contains('active')) {
+                        hasWelcomed = true;
+                        audioQueue.push("Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?");
+                        if (!isPlaying) playNextAudio();
+                    }
+                }, 300); // 300ms zpoždění, aby okno stihlo vyjet
             }
+        });
 
-            while(true) {
-                let {done, value} = await reader.read();
-                if (done) break;
-                let chunk = dec.decode(value, {stream:true});
-                iStr += chunk;
+        // 2. HLASITOST (Zapnuto/Vypnuto)
+        speakerBtn.addEventListener('click', () => {
+            isVoiceEnabled = !isVoiceEnabled;
+            if (isVoiceEnabled) {
+                speakerBtn.classList.add('active');
+            } else {
+                speakerBtn.classList.remove('active');
+                audioQueue = [];
+                if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+                isPlaying = false;
+            }
+        });
 
-                if (ve) {
-                    fStr += chunk;
-                    while(true) {
-                        let m = fStr.match(/(.*?[.?!>\n])/);
-                        if (!m) break;
-                        let sent = m[1];
-                        fStr = fStr.substring(sent.length);
-                        let clean = sent.replace(/<[^>]*>?/gm,'').trim();
-                        if (clean) { aq.push(clean); if(!ip) playAudio(); }
+        async function playNextAudio() {
+            if (audioQueue.length === 0) { isPlaying = false; return; }
+            isPlaying = true;
+            const text = audioQueue.shift().replace(/<[^>]*>?/gm, '').trim();
+            if (!text) return playNextAudio();
+            
+            try {
+                const fd = new FormData();
+                fd.append("text", text);
+                const res = await fetch('http://127.0.0.1:8000/tts', { method: 'POST', body: fd });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    currentAudio = new Audio(URL.createObjectURL(blob));
+                    currentAudio.onended = playNextAudio;
+                    currentAudio.play();
+                } else {
+                    playNextAudio();
+                }
+            } catch (e) {
+                console.error("TTS chyba:", e);
+                playNextAudio();
+            }
+        }
+
+        // 3. PŘÍLOHA (Vybrání souboru)
+        attachBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                attachBtn.classList.add('active'); // Sponka svítí
+            }
+        });
+
+        // 4. MIKROFON (Nahrávání hlasovky)
+        micBtn.addEventListener('click', async () => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                micBtn.classList.remove('recording'); // Vypne pulzování
+            } else {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    micBtn.classList.add('recording'); // Zapne pulzování
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    };
+                } catch (e) {
+                    alert("Přístup k mikrofonu byl odepřen.");
+                }
+            }
+        });
+
+        // 5. ODESLÁNÍ ZPRÁVY A KOMUNIKACE S BACKENDEM
+        async function sendMessage() {
+            const text = inputEl.value.trim();
+            if (!text && !selectedFile && !recordedAudioBlob) return;
+
+            audioQueue = [];
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+            isPlaying = false;
+
+            let html = '';
+            if (text) html += `<div>${text}</div>`;
+            if (selectedFile) html += `<img src="${URL.createObjectURL(selectedFile)}" style="max-width:100%; border-radius:6px; margin-top:6px;">`;
+            if (recordedAudioBlob) html += `<audio controls src="${URL.createObjectURL(recordedAudioBlob)}" style="max-width:100%; margin-top:6px; height:40px;"></audio>`;
+
+            messagesEl.innerHTML += `<div class="msg_wrap user"><div class="msg">${html}</div></div>`;
+            inputEl.value = '';
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+
+            const loaderId = 'loader_' + Date.now();
+            messagesEl.innerHTML += `<div id="${loaderId}" class="msg_wrap ai"><div class="msg" style="background:transparent; padding:0;"><div style="display:flex; gap:4px; padding:12px;"><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-white 1s infinite;"></div><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-white 1s infinite 0.2s;"></div><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-white 1s infinite 0.4s;"></div></div></div></div>`;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+
+            try {
+                const fd = new FormData();
+                if (text) fd.append("message", text);
+                if (selectedFile) fd.append("file", selectedFile);
+                else if (recordedAudioBlob) fd.append("file", recordedAudioBlob, "hlasovka.webm");
+
+                // Reset po odeslání
+                selectedFile = null;
+                recordedAudioBlob = null;
+                fileInput.value = '';
+                attachBtn.classList.remove('active');
+                micBtn.classList.remove('recording');
+
+                const res = await fetch('http://127.0.0.1:8000/chat', { method: 'POST', body: fd });
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let incStr = "", started = false, msgDiv = null, fullStr = "";
+
+                // Efekt postupného psaní (Typewriter)
+                function typeWriter() {
+                    if (incStr.length > 0) {
+                        msgDiv.innerHTML += incStr[0];
+                        incStr = incStr.substring(1);
+                        messagesEl.scrollTop = messagesEl.scrollHeight;
+                        setTimeout(typeWriter, 20);
+                    } else {
+                        started = false;
                     }
                 }
 
-                if (!sFlag) {
-                    let ld = g(lid); if(ld) ld.remove();
-                    let w = document.createElement('div'); w.className = 'msg_wrap ai';
-                    dNode = document.createElement('div'); dNode.className = 'msg';
-                    w.appendChild(dNode); me.appendChild(w);
-                    sFlag = true; typeWriter();
-                }
-            }
-            if (ve && fStr.trim()) {
-                let clean = fStr.replace(/<[^>]*>?/gm,'').trim();
-                if (clean) { aq.push(clean); if(!ip) playAudio(); }
-            }
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    incStr += chunk;
 
-        } catch(e) {
-            let ld = g(lid); if(ld) ld.remove();
-            me.innerHTML += `<div class="msg_wrap ai"><div class="msg" style="background:rgba(255,0,0,.2);border-color:red">Chyba (127.0.0.1)</div></div>`;
-            me.scrollTop = me.scrollHeight;
+                    if (isVoiceEnabled) {
+                        fullStr += chunk;
+                        while (true) {
+                            const match = fullStr.match(/(.*?[.?!>\n])/);
+                            if (!match) break;
+                            const sentence = match[1];
+                            fullStr = fullStr.substring(sentence.length);
+                            const cleanSentence = sentence.replace(/<[^>]*>?/gm, '').trim();
+                            if (cleanSentence) {
+                                audioQueue.push(cleanSentence);
+                                if (!isPlaying) playNextAudio();
+                            }
+                        }
+                    }
+
+                    if (!started) {
+                        const loader = document.getElementById(loaderId);
+                        if (loader) loader.remove();
+                        const wrap = document.createElement('div');
+                        wrap.className = 'msg_wrap ai';
+                        msgDiv = document.createElement('div');
+                        msgDiv.className = 'msg';
+                        wrap.appendChild(msgDiv);
+                        messagesEl.appendChild(wrap);
+                        started = true;
+                        typeWriter();
+                    }
+                }
+
+                if (isVoiceEnabled && fullStr.trim()) {
+                    const cleanSentence = fullStr.replace(/<[^>]*>?/gm, '').trim();
+                    if (cleanSentence) {
+                        audioQueue.push(cleanSentence);
+                        if (!isPlaying) playNextAudio();
+                    }
+                }
+
+            } catch (e) {
+                const loader = document.getElementById(loaderId);
+                if (loader) loader.remove();
+                messagesEl.innerHTML += `<div class="msg_wrap ai"><div class="msg" style="background:rgba(255,0,0,0.2); border-color:red;">⚠️ Chybí spojení s backendem (127.0.0.1).</div></div>`;
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
         }
+
+        sendBtn.addEventListener('click', sendMessage);
+        inputEl.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
     }
 
-    sb.onclick = sendMsg;
-    ie.onkeypress = e => { if(e.key === 'Enter') sendMsg(); };
-
-})();
+    // Spuštění inicializace
+    initVenesis();
+});
