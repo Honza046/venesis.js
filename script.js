@@ -4,13 +4,12 @@ function startVenesisBrain() {
     const sendBtn = document.getElementById('send_btn');
     const inputEl = document.getElementById('chat_input');
     
-    // Čekáme, dokud Framer ty prvky nevykreslí (pokud tam ještě nejsou)
     if (!trigger || !sendBtn || !inputEl) {
         setTimeout(startVenesisBrain, 500);
         return;
     }
 
-    console.log("Venesis AI: Mozek připojen k designu!");
+    console.log("Venesis AI: Mozek připojen, vše je čisté a připravené!");
 
     const messagesEl = document.getElementById('chat_messages');
     const attachBtn = document.getElementById('attach_btn');
@@ -18,7 +17,8 @@ function startVenesisBrain() {
     const micBtn = document.getElementById('mic_btn');
     const speakerBtn = document.getElementById('speaker_btn');
 
-    let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null, isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
+    let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null;
+    let isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
 
     // Repráček je od začátku zapnutý
     if (speakerBtn) speakerBtn.classList.add('active');
@@ -31,7 +31,6 @@ function startVenesisBrain() {
     // HLASOVÉ UVÍTÁNÍ PŘI KLIKNUTÍ NA LOGO
     trigger.addEventListener('click', () => {
         if (!hasWelcomed && isVoiceEnabled) {
-            // Počkáme 200ms, aby se stihlo otevřít okno ve Frameru
             setTimeout(() => {
                 if (windowEl.classList.contains('active')) {
                     hasWelcomed = true;
@@ -42,7 +41,7 @@ function startVenesisBrain() {
         }
     });
 
-    // Tlačítko zvuku
+    // Tlačítko zvuku on/off
     speakerBtn.addEventListener('click', () => {
         isVoiceEnabled = !isVoiceEnabled;
         if (isVoiceEnabled) {
@@ -62,7 +61,6 @@ function startVenesisBrain() {
         if (0 === t.length) return void playNextAudio();
         try {
             const e = new FormData; e.append("text", t);
-            // POZOR LOKÁLNÍ SERVER
             const n = await fetch('http://127.0.0.1:8000/tts', { method: 'POST', body: e });
             if (n.ok) {
                 const t = await n.blob();
@@ -73,25 +71,25 @@ function startVenesisBrain() {
         } catch (t) { console.error(t), playNextAudio() }
     }
 
-    // Přílohy
+    // Přílohy (Po vložení zmodrá sponka)
     attachBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', t => { 
         if (t.target.files.length > 0) {
             selectedFile = t.target.files[0];
-            attachBtn.classList.add('active'); 
+            attachBtn.classList.add('active'); // Tady zmodrá
         }
     });
 
-    // Mikrofon
+    // Mikrofon (Při nahrávání zčervená a pulzuje)
     micBtn.addEventListener('click', async () => {
         if (mediaRecorder && "recording" === mediaRecorder.state) {
             mediaRecorder.stop();
-            micBtn.classList.remove('recording'); 
+            micBtn.classList.remove('recording'); // Tady přestane blikat
         } else try {
             const t = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(t);
             mediaRecorder.start();
-            micBtn.classList.add('recording'); 
+            micBtn.classList.add('recording'); // Tady zčervená
             audioChunks = [];
             mediaRecorder.addEventListener("dataavailable", t => { audioChunks.push(t.data) });
             mediaRecorder.addEventListener("stop", () => { recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' }) });
@@ -129,9 +127,9 @@ function startVenesisBrain() {
             selectedFile = null;
             recordedAudioBlob = null;
             fileInput.value = '';
-            attachBtn.classList.remove('active');
+            attachBtn.classList.remove('active'); // Odesláno, sponka se vrátí na šedou
             
-            // POZOR LOKÁLNÍ SERVER
+            // LOKÁLNÍ SERVER
             const r = await fetch('http://127.0.0.1:8000/chat', { method: 'POST', body: e });
             const o = r.body.getReader(), a = new TextDecoder();
             let i = "", s = false, d = null, c = "";
@@ -175,5 +173,4 @@ function startVenesisBrain() {
     inputEl.addEventListener('keypress', t => { 'Enter' === t.key && sendMessage() });
 }
 
-// Spuštění po načtení
 startVenesisBrain();
