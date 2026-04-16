@@ -1,40 +1,40 @@
-function initVenesis() {
+function startVenesisBrain() {
     const trigger = document.getElementById('chat_trigger');
     const windowEl = document.getElementById('chat_window');
-    const closeBtn = document.getElementById('close_chat');
     const sendBtn = document.getElementById('send_btn');
     const inputEl = document.getElementById('chat_input');
-    const messagesEl = document.getElementById('chat_messages');
     const attachBtn = document.getElementById('attach_btn');
     const fileInput = document.getElementById('file_input');
     const micBtn = document.getElementById('mic_btn');
     const speakerBtn = document.getElementById('speaker_btn');
+    const messagesEl = document.getElementById('chat_messages');
 
-    // Čekáme, dokud Framer nevykreslí celou lištu
-    if (!trigger || !windowEl || !sendBtn || !micBtn) {
-        setTimeout(initVenesis, 300);
+    // Počkáme na načtení prvků Framerem
+    if (!trigger || !sendBtn || !inputEl || !attachBtn || !micBtn || !speakerBtn) {
+        setTimeout(startVenesisBrain, 300);
         return;
     }
 
-    console.log("Venesis AI: Systém plně online.");
+    console.log("Venesis AI: Mozek online, připraven komunikovat!");
 
     let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null;
     let isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
 
-    // Fyzické otevírání chatu
-    trigger.onclick = () => {
-        windowEl.classList.toggle('active');
-        if (windowEl.classList.contains('active') && !hasWelcomed && isVoiceEnabled) {
-            hasWelcomed = true;
-            audioQueue.push("Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?");
-            if (!isPlaying) playNextAudio();
+    // HLASOVÉ UVÍTÁNÍ PŘI KLIKNUTÍ
+    trigger.addEventListener('click', () => {
+        if (!hasWelcomed && isVoiceEnabled) {
+            setTimeout(() => {
+                if (windowEl.classList.contains('active')) {
+                    hasWelcomed = true;
+                    audioQueue.push("Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?");
+                    if (!isPlaying) playNextAudio();
+                }
+            }, 300); // 300ms zpoždění zajistí, že se okno stihne otevřít
         }
-    };
-    
-    closeBtn.onclick = () => { windowEl.classList.remove('active'); };
+    });
 
-    // Tlačítko zvuku
-    speakerBtn.onclick = () => {
+    // ZVUK ON/OFF
+    speakerBtn.addEventListener('click', () => {
         isVoiceEnabled = !isVoiceEnabled;
         if (isVoiceEnabled) {
             speakerBtn.classList.add('active');
@@ -44,7 +44,7 @@ function initVenesis() {
             if (currentAudio) { currentAudio.pause(); currentAudio = null; }
             isPlaying = false;
         }
-    };
+    });
 
     async function playNextAudio() {
         if (0 === audioQueue.length) return void (isPlaying = false);
@@ -63,17 +63,17 @@ function initVenesis() {
         } catch (t) { console.error("TTS error", t), playNextAudio() }
     }
 
-    // Přílohy
-    attachBtn.onclick = () => { fileInput.click(); };
-    fileInput.onchange = (t) => { 
+    // PŘÍLOHA SOUBORU
+    attachBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', t => { 
         if (t.target.files.length > 0) {
             selectedFile = t.target.files[0];
             attachBtn.classList.add('active'); 
         }
-    };
+    });
 
-    // Mikrofon
-    micBtn.onclick = async () => {
+    // MIKROFON
+    micBtn.addEventListener('click', async () => {
         if (mediaRecorder && "recording" === mediaRecorder.state) {
             mediaRecorder.stop();
             micBtn.classList.remove('recording'); 
@@ -86,9 +86,9 @@ function initVenesis() {
             mediaRecorder.addEventListener("dataavailable", t => { audioChunks.push(t.data) });
             mediaRecorder.addEventListener("stop", () => { recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' }) });
         } catch (t) { alert("K mikrofonu nebyl povolen přístup.") }
-    };
+    });
 
-    // Odesílání
+    // ODESLÁNÍ
     async function sendMessage() {
         const t = inputEl.value.trim();
         if (!t && !selectedFile && !recordedAudioBlob) return;
@@ -161,9 +161,9 @@ function initVenesis() {
         }
     }
 
-    sendBtn.onclick = sendMessage;
-    inputEl.onkeypress = t => { 'Enter' === t.key && sendMessage() };
+    sendBtn.addEventListener('click', sendMessage);
+    inputEl.addEventListener('keypress', t => { 'Enter' === t.key && sendMessage() });
 }
 
 // Spuštění
-initVenesis();
+startVenesisBrain();
