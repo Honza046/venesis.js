@@ -1,27 +1,29 @@
 function startVenesisBrain() {
+    // Nejdřív si najdeme všechny prvky
     const trigger = document.getElementById('chat_trigger');
     const windowEl = document.getElementById('chat_window');
     const sendBtn = document.getElementById('send_btn');
     const inputEl = document.getElementById('chat_input');
-    
-    if (!trigger || !sendBtn || !inputEl) {
-        setTimeout(startVenesisBrain, 500);
-        return;
-    }
-
-    console.log("Venesis AI: Mozek připojen, vše je čisté a připravené!");
-
     const messagesEl = document.getElementById('chat_messages');
     const attachBtn = document.getElementById('attach_btn');
     const fileInput = document.getElementById('file_input');
     const micBtn = document.getElementById('mic_btn');
     const speakerBtn = document.getElementById('speaker_btn');
 
+    // POJISTKA: Dokud Framer nevykreslí VŠECHNY prvky, skript čeká. Tím zabráníme pádu.
+    if (!trigger || !windowEl || !sendBtn || !inputEl || !attachBtn || !fileInput || !micBtn || !speakerBtn || !messagesEl) {
+        console.log("Venesis AI: Čekám na načtení všech prvků...");
+        setTimeout(startVenesisBrain, 500);
+        return;
+    }
+
+    console.log("Venesis AI: Všechny prvky nalezeny! Systém je plně online.");
+
     let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null;
     let isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
 
     // Repráček je od začátku zapnutý
-    if (speakerBtn) speakerBtn.classList.add('active');
+    speakerBtn.classList.add('active');
 
     function getTime() { 
         const t = new Date; 
@@ -71,29 +73,41 @@ function startVenesisBrain() {
         } catch (t) { console.error(t), playNextAudio() }
     }
 
-    // Přílohy (Po vložení zmodrá sponka)
-    attachBtn.addEventListener('click', () => fileInput.click());
+    // Přílohy (Otevře soubory na PC)
+    attachBtn.addEventListener('click', () => {
+        console.log("Kliknuto na přílohu");
+        fileInput.click();
+    });
+    
     fileInput.addEventListener('change', t => { 
         if (t.target.files.length > 0) {
             selectedFile = t.target.files[0];
-            attachBtn.classList.add('active'); // Tady zmodrá
+            attachBtn.classList.add('active'); // Ikona zbělá, když je vybrán soubor
+            console.log("Soubor vybrán:", selectedFile.name);
         }
     });
 
-    // Mikrofon (Při nahrávání zčervená a pulzuje)
+    // Mikrofon (Nahrávání zvuku)
     micBtn.addEventListener('click', async () => {
+        console.log("Kliknuto na mikrofon");
         if (mediaRecorder && "recording" === mediaRecorder.state) {
             mediaRecorder.stop();
-            micBtn.classList.remove('recording'); // Tady přestane blikat
+            micBtn.classList.remove('recording'); // Přestane pulzovat
         } else try {
             const t = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(t);
             mediaRecorder.start();
-            micBtn.classList.add('recording'); // Tady zčervená
+            micBtn.classList.add('recording'); // Začne pulzovat
             audioChunks = [];
             mediaRecorder.addEventListener("dataavailable", t => { audioChunks.push(t.data) });
-            mediaRecorder.addEventListener("stop", () => { recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' }) });
-        } catch (t) { alert("K mikrofonu nebyl povolen přístup.") }
+            mediaRecorder.addEventListener("stop", () => { 
+                recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                console.log("Hlasovka nahrána");
+            });
+        } catch (t) { 
+            alert("K mikrofonu nebyl povolen přístup.");
+            console.error("Chyba mikrofonu:", t);
+        }
     });
 
     // Odesílání zpráv
@@ -115,7 +129,7 @@ function startVenesisBrain() {
         messagesEl.scrollTop = messagesEl.scrollHeight;
         
         const n = 'loader_' + Date.now();
-        messagesEl.innerHTML += `<div id="${n}" class="msg_wrap ai"><div class="msg" style="background:transparent; padding:0;"><div style="display:flex; gap:4px; padding:12px;"><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-mic 1s infinite;"></div><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-mic 1s infinite 0.2s;"></div><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-mic 1s infinite 0.4s;"></div></div></div></div>`;
+        messagesEl.innerHTML += `<div id="${n}" class="msg_wrap ai"><div class="msg" style="background:transparent; padding:0;"><div style="display:flex; gap:4px; padding:12px;"><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-white 1s infinite;"></div><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-white 1s infinite 0.2s;"></div><div style="width:6px; height:6px; background:#fff; border-radius:50%; animation: pulse-white 1s infinite 0.4s;"></div></div></div></div>`;
         messagesEl.scrollTop = messagesEl.scrollHeight;
         
         try {
@@ -128,8 +142,8 @@ function startVenesisBrain() {
             recordedAudioBlob = null;
             fileInput.value = '';
             attachBtn.classList.remove('active'); // Odesláno, sponka se vrátí na šedou
+            micBtn.classList.remove('recording'); // Pojistka
             
-            // LOKÁLNÍ SERVER
             const r = await fetch('http://127.0.0.1:8000/chat', { method: 'POST', body: e });
             const o = r.body.getReader(), a = new TextDecoder();
             let i = "", s = false, d = null, c = "";
@@ -173,4 +187,5 @@ function startVenesisBrain() {
     inputEl.addEventListener('keypress', t => { 'Enter' === t.key && sendMessage() });
 }
 
+// Spustíme inicializaci
 startVenesisBrain();
