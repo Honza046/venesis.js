@@ -4,6 +4,30 @@
         return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     }
 
+    // --- DYNAMICKÁ JAZYKOVÁ LOGIKA ---
+    function getCurrentLang() {
+        const htmlLang = document.documentElement.lang || '';
+        const path = window.location.pathname || '';
+        // Pokud je v hlavičce 'cs' nebo je v URL adrese '/cs', je to čeština
+        if (htmlLang.toLowerCase().includes('cs') || path.includes('/cs')) {
+            return 'cs';
+        }
+        return 'en';
+    }
+
+    const translations = {
+        cs: {
+            welcome: "Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?",
+            placeholder: "Napiš zprávu...",
+            error: "⚠️ Backend neběží."
+        },
+        en: {
+            welcome: "Hi! I'm Venesis. How can I help you today?",
+            placeholder: "Type a message...",
+            error: "⚠️ Backend is offline."
+        }
+    };
+
     function initVenesis() {
         const trigger = document.getElementById('chat_trigger');
         const windowEl = document.getElementById('chat_window');
@@ -15,38 +39,24 @@
         const speakerBtn = document.getElementById('speaker_btn');
         const messagesEl = document.getElementById('chat_messages');
 
-        // Pokud tlačítka ještě nejsou v DOMu, zkusíme to za chvíli znovu
-        if (!trigger || !sendBtn || !speakerBtn || !messagesEl) {
-            setTimeout(initVenesis, 300);
-            return;
-        }
-
-        // --- JAZYKOVÁ LOGIKA ---
-        const lang = document.documentElement.lang.startsWith('cs') ? 'cs' : 'en';
-        const translations = {
-            cs: {
-                welcome: "Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?",
-                placeholder: "Napiš zprávu...",
-                error: "⚠️ Backend neběží."
-            },
-            en: {
-                welcome: "Hi! I'm Venesis. How can I help you today?",
-                placeholder: "Type a message...",
-                error: "⚠️ Backend is offline."
-            }
-        };
-        const t = translations[lang];
+        // Pokud tlačítka neexistují, počkáme (Framer je ještě nenačetl)
+        if (!trigger || !sendBtn || !speakerBtn || !messagesEl) return;
         
-        // Nastavení placeholderu do políčka podle jazyka
-        if (inputEl) inputEl.placeholder = t.placeholder;
-        // -----------------------
+        // Pokud už má trigger naši značku, znamená to, že už funguje. Nepokračujeme dál.
+        if (trigger.dataset.venesisInited === "true") return;
 
-        console.log(`✅ Venesis AI: MOZEK NAKOPNUT A PŘIPOJEN! (Jazyk: ${lang})`);
+        // Dáme mu značku, že je oživený
+        trigger.dataset.venesisInited = "true";
+
+        const currentLang = getCurrentLang();
+        const t = translations[currentLang];
+        
+        if (inputEl) inputEl.placeholder = t.placeholder;
 
         let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null;
         let isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
 
-        // UVÍTÁNÍ (jen zvuk, vizuál řeší Framer)
+        // UVÍTÁNÍ
         trigger.addEventListener('click', () => {
             if (!hasWelcomed && isVoiceEnabled) {
                 setTimeout(() => {
@@ -76,8 +86,10 @@
             const text = audioQueue.shift().replace(/<[^>]*>?/gm, '').trim();
             if (!text) return playNextAudio();
             try {
-                const fd = new FormData(); fd.append("text", text);
-                // --- NGROK ADRESA ZDE ---
+                const fd = new FormData(); 
+                fd.append("text", text);
+                fd.append("lang", getCurrentLang()); // Jazyk pro TTS
+
                 const res = await fetch('https://glorified-renewed-banking.ngrok-free.dev/tts', { method: 'POST', body: fd });
                 if (res.ok) {
                     const blob = await res.blob();
@@ -140,13 +152,12 @@
                 if (selectedFile) fd.append("file", selectedFile);
                 else if (recordedAudioBlob) fd.append("file", recordedAudioBlob, "voice.webm");
                 
-                // --- PŘIDÁNO: Posíláme jazyk na backend ---
-                fd.append("lang", lang);
+                // Přidáme aktuální jazyk až při odeslání zprávy
+                fd.append("lang", getCurrentLang());
 
                 selectedFile = null; recordedAudioBlob = null; fileInput.value = '';
                 attachBtn.classList.remove('active'); micBtn.classList.remove('recording');
 
-                // --- NGROK ADRESA ZDE ---
                 const res = await fetch('https://glorified-renewed-banking.ngrok-free.dev/chat', { method: 'POST', body: fd });
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
@@ -189,7 +200,6 @@
                     }
                 }
                 
-                // Přidání času pod AI zprávu, až když je hotovo
                 if (msgDiv && msgDiv.parentElement) {
                     const tDiv = document.createElement('div');
                     tDiv.className = 'msg_time';
@@ -199,6 +209,7 @@
 
             } catch (e) {
                 const loader = document.getElementById(loaderId); if (loader) loader.remove();
+                const t = translations[getCurrentLang()];
                 messagesEl.innerHTML += `<div class="msg_wrap ai"><div class="msg" style="background:rgba(255,0,0,0.2)">${t.error}</div></div>`;
             }
         }
@@ -207,6 +218,7 @@
         inputEl.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
     }
 
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initVenesis);
-    else initVenesis();
+    // Náš Hlídač: Každých 500ms zkontroluje, jestli je chat připravený. 
+    // Tohle automaticky opraví problém po přepnutí jazyka ve Frameru!
+    setInterval(initVenesis, 500);
 })();
