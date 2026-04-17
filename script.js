@@ -77,7 +77,8 @@
             if (!text) return playNextAudio();
             try {
                 const fd = new FormData(); fd.append("text", text);
-                const res = await fetch('http://127.0.0.1:8000/tts', { method: 'POST', body: fd });
+                // --- NGROK ADRESA ZDE ---
+                const res = await fetch('https://glorified-renewed-banking.ngrok-free.dev/tts', { method: 'POST', body: fd });
                 if (res.ok) {
                     const blob = await res.blob();
                     currentAudio = new Audio(URL.createObjectURL(blob));
@@ -145,7 +146,8 @@
                 selectedFile = null; recordedAudioBlob = null; fileInput.value = '';
                 attachBtn.classList.remove('active'); micBtn.classList.remove('recording');
 
-                const res = await fetch('http://127.0.0.1:8000/chat', { method: 'POST', body: fd });
+                // --- NGROK ADRESA ZDE ---
+                const res = await fetch('https://glorified-renewed-banking.ngrok-free.dev/chat', { method: 'POST', body: fd });
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let fullStr = "", started = false, msgDiv = null, incStr = "";
