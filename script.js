@@ -21,7 +21,27 @@
             return;
         }
 
-        console.log("✅ Venesis AI: MOZEK NAKOPNUT A PŘIPOJEN!");
+        // --- JAZYKOVÁ LOGIKA ---
+        const lang = document.documentElement.lang.startsWith('cs') ? 'cs' : 'en';
+        const translations = {
+            cs: {
+                welcome: "Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?",
+                placeholder: "Napiš zprávu...",
+                error: "⚠️ Backend neběží."
+            },
+            en: {
+                welcome: "Hi! I'm Venesis. How can I help you today?",
+                placeholder: "Type a message...",
+                error: "⚠️ Backend is offline."
+            }
+        };
+        const t = translations[lang];
+        
+        // Nastavení placeholderu do políčka podle jazyka
+        if (inputEl) inputEl.placeholder = t.placeholder;
+        // -----------------------
+
+        console.log(`✅ Venesis AI: MOZEK NAKOPNUT A PŘIPOJEN! (Jazyk: ${lang})`);
 
         let selectedFile = null, mediaRecorder = null, audioChunks = [], recordedAudioBlob = null;
         let isVoiceEnabled = true, currentAudio = null, audioQueue = [], isPlaying = false, hasWelcomed = false;
@@ -32,7 +52,7 @@
                 setTimeout(() => {
                     if (windowEl.classList.contains('active')) {
                         hasWelcomed = true;
-                        audioQueue.push("Ahoj! Jsem Venesis. Jak ti můžu dneska pomoci?");
+                        audioQueue.push(t.welcome);
                         if (!isPlaying) playNextAudio();
                     }
                 }, 300);
@@ -118,6 +138,9 @@
                 if (text) fd.append("message", text);
                 if (selectedFile) fd.append("file", selectedFile);
                 else if (recordedAudioBlob) fd.append("file", recordedAudioBlob, "voice.webm");
+                
+                // --- PŘIDÁNO: Posíláme jazyk na backend ---
+                fd.append("lang", lang);
 
                 selectedFile = null; recordedAudioBlob = null; fileInput.value = '';
                 attachBtn.classList.remove('active'); micBtn.classList.remove('recording');
@@ -174,7 +197,7 @@
 
             } catch (e) {
                 const loader = document.getElementById(loaderId); if (loader) loader.remove();
-                messagesEl.innerHTML += `<div class="msg_wrap ai"><div class="msg" style="background:rgba(255,0,0,0.2)">⚠️ Backend neběží.</div></div>`;
+                messagesEl.innerHTML += `<div class="msg_wrap ai"><div class="msg" style="background:rgba(255,0,0,0.2)">${t.error}</div></div>`;
             }
         }
 
